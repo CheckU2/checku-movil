@@ -1,3 +1,4 @@
+import { ProximityMonitor } from '../../src/components/ProximityMonitor';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -14,6 +15,7 @@ export default function Attendance() {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pin, setPin] = useState('');
+  const [monitorSessionId, setMonitorSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<AttendanceItem[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,8 +33,8 @@ export default function Attendance() {
       if (mode === 'qr') {
         try { const parsed = JSON.parse(token); token = parsed.qr_token ? JSON.stringify(parsed) : token; } catch { /* token simple */ }
       }
-      await api.post(`/attendance/${mode}/check-in`, mode === 'code' ? { code: token } : { qr_token: token });
-      setPin(''); Alert.alert('Asistencia registrada', 'Tu registro se guardó correctamente.'); await load();
+      const attendance = await api.post<{ session_id: string }>(`/attendance/${mode}/check-in`, mode === 'code' ? { code: token } : { qr_token: token });
+      setPin(''); if (attendance?.session_id) setMonitorSessionId(attendance.session_id); Alert.alert('Asistencia registrada', 'Tu registro se guardó correctamente.'); await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo registrar.'); }
     finally { setBusy(false); }
   };
@@ -52,6 +54,7 @@ export default function Attendance() {
         {scanning ? <View style={styles.camera}><CameraView style={{ flex: 1 }} barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={busy ? undefined : ({ data }) => void checkIn('qr', data)} /></View> : null}
         <Button title={scanning ? 'Cerrar cámara' : 'Abrir cámara'} secondary onPress={() => scanning ? setScanning(false) : void openCamera()} />
       </Card>
+      {monitorSessionId ? <ProximityMonitor sessionId={monitorSessionId} active={true} /> : null}
       {error ? <Notice message={error} /> : null}
       <Text style={styles.heading}>Historial</Text>
       {loading ? <ActivityIndicator color={colors.primary} /> : null}

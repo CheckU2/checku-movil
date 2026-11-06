@@ -6,6 +6,7 @@ type AuthState = {
   user: User | null; loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 const Context = createContext<AuthState | null>(null);
 
@@ -21,6 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; };
   }, []);
 
+  const refreshUser = async () => {
+    const result = await request<ApiEnvelope<User>>('/auth/me');
+    setUser(result.data);
+  };
   const signIn = async (email: string, password: string) => {
     const result = await request<ApiEnvelope<LoginData>>('/auth/login', {
       method: 'POST', body: JSON.stringify({ email: email.trim(), password }),
@@ -31,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await clearTokens(); setUser(null);
   };
-  return <Context.Provider value={{ user, loading, signIn, signOut }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ user, loading, signIn, signOut, refreshUser }}>{children}</Context.Provider>;
 }
 
 export function useAuth(): AuthState {
